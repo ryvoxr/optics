@@ -11,27 +11,26 @@ Board *newboard() {
 }
 
 Block *newmirrors() {
-    Block *mirrors = malloc(sizeof(Block) * MIRRORSNUM);
+    Block *mirrors = malloc(sizeof(Block) * MIRRORNUM);
     int i;
     Block mirror;
-    for (i = 0; i < MIRRORSNUM; i++) {
-        mirror = mirrors[i];
-        mirror.x = 0;
-        mirror.y = 0;
-        mirror.angle = 0;
+    for (i = 0; i < MIRRORNUM; i++) {
+        mirrors[i].x = 0;
+        mirrors[i].y = 0;
+        mirrors[i].width = 0;
+        mirrors[i].angle = 0;
     }
     return mirrors;
 }
 
 Block *newbarriers() {
-    Block *barriers = malloc(sizeof(Block) * BARRIERSNUM);
+    Block *barriers = malloc(sizeof(Block) * BARRIERNUM);
     int i;
-    Block barrier;
-    for (i = 0; i < MIRRORSNUM; i++) {
-        barrier = barriers[i];
-        barrier.x = 0;
-        barrier.y = 0;
-        barrier.angle = 0;
+    for (i = 0; i < BARRIERNUM; i++) {
+        barriers[i].x = 0;
+        barriers[i].y = 0;
+        barriers[i].width = 0;
+        barriers[i].angle = 0;
     }
     return barriers;
 }

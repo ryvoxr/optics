@@ -3,8 +3,9 @@
 #define WIDTH 56
 #define HEIGHT 35
 
-#define MIRRORSNUM 5
-#define BARRIERSNUM 3
+#define MIRRORNUM 5
+#define BARRIERNUM 3
+#define BLOCKTHICKNESS 10
 
 typedef struct {
     SDL_Window *window;
