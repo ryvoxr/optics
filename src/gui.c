@@ -1,18 +1,18 @@
 #include "optics.h"
 #include "lib.h"
 
-#define SCALE 30
-#define BORDERSIZE 8
-#define WINWIDTH ((WIDTH * SCALE) + (BORDERSIZE * 2))
-#define WINHEIGHT ((HEIGHT * SCALE) + (BORDERSIZE * 2))
 #define BOARDWIDTH (WIDTH * SCALE)
 #define BOARDHEIGHT (HEIGHT * SCALE)
 #define FPS 60
 
 void updatetexture(SDL_Context *ctx, State *state);
-void rendermirrors(SDL_Context *ctx, Block *mirrors);
-void renderblock(SDL_Context *ctx, Block block, SDL_Color color);
+void rendermirrors(SDL_Context *ctx, State *state);
+void rendermirror(SDL_Context *ctx, Block mirro, SDL_Color color);
+void renderbarriers(SDL_Context *ctx, State *state);
+void renderbarrier(SDL_Context *ctx, Block barrier, SDL_Color color);
 void rotvert(SDL_Vertex *v, double angle);
+void shiftvert(SDL_Vertex *v, int x, int y);
+int dist(SDL_Point *p1, SDL_Point *p2);
 
 SDL_Context *SDL_InitContext() {
     SDL_Context *ctx = malloc(sizeof(SDL_Context));
@@ -57,43 +57,93 @@ void updatetexture(SDL_Context *ctx, State *state) {
     SDL_SetRenderDrawColor(ctx->renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RenderClear(ctx->renderer);
 
-    rendermirrors(ctx, state->board->mirrors);
-}
-
-void rendermirrors(SDL_Context *ctx, Block *mirrors) {
-    SDL_SetRenderTarget(ctx->renderer, ctx->texture);
+    // Render midline
     SDL_SetRenderDrawColor(ctx->renderer, 0x00, 0x00, 0x00, 0xFF);
-    SDL_Color color = {0xFF, 0x00, 0x00, 0xFF};
-    int i;
-    for (i = 0; i < MIRRORNUM; i++)
-        renderblock(ctx, mirrors[i], color);
+    SDL_RenderDrawLine(ctx->renderer, 0, BOARDHEIGHT / 2, BOARDWIDTH,
+                       BOARDHEIGHT / 2);
+
+    rendermirrors(ctx, state);
+    renderbarriers(ctx, state);
 }
 
-void renderblock(SDL_Context *ctx, Block block, SDL_Color color) {
+void rendermirrors(SDL_Context *ctx, State *state) {
+    Mirrors *mirrors = state->board->mirrors;
+    SDL_Color defaultcolor = {0xFF, 0x00, 0x00, 0xFF};
+    SDL_Color selectedcolor = {0x00, 0xFF, 0x00, 0xFF};
+    int i;
+    for (i = 0; i < mirrors->n; i++)
+        if (mirrors->data + i == state->selectedblock)
+            rendermirror(ctx, mirrors->data[i], selectedcolor);
+        else
+            rendermirror(ctx, mirrors->data[i], defaultcolor);
+}
+
+void rendermirror(SDL_Context *ctx, Block mirror, SDL_Color color) {
     int x, y, w;
-    x = block.x * SCALE;
-    y = block.y * SCALE;
-    w = ((float) block.width / 2.0) * SCALE;
-    SDL_Vertex v1 = {{x - w - 10, y + 10}, color, {1, 1}};;
-    SDL_Vertex v2 = {{x - w, y + 10}, color, {1, 1}};
-    SDL_Vertex v3 = {{x - w, y}, color, {1, 1}};
+    x = mirror.x;
+    y = mirror.y;
+    w = mirror.width / 2;
+    SDL_Vertex v1 = {{-w - BLOCKSIZE, BLOCKSIZE}, color, {1, 1}};;
+    SDL_Vertex v2 = {{-w, BLOCKSIZE}, color, {1, 1}};
+    SDL_Vertex v3 = {{-w, 0}, color, {1, 1}};
     SDL_Vertex v4 = v2;
-    SDL_Vertex v5 = {{x + w, y}, color, {1, 1}};
+    SDL_Vertex v5 = {{w, 0}, color, {1, 1}};
     SDL_Vertex v6 = v3;
     SDL_Vertex v7 = v4;
-    SDL_Vertex v8 = {{x + w, y + 10}, color, {1, 1}};
+    SDL_Vertex v8 = {{w, BLOCKSIZE}, color, {1, 1}};
     SDL_Vertex v9 = v5;
     SDL_Vertex v10 = v8;
-    SDL_Vertex v11 = {{x + w + 10, y + 10}, color, {1, 1}};
+    SDL_Vertex v11 = {{w + BLOCKSIZE, BLOCKSIZE}, color, {1, 1}};
     SDL_Vertex v12 = v9;
     SDL_Vertex vertices[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10,
                              v11, v12};
 
     int i;
-    for (i = 0; i < 12; i++)
-        rotvert(vertices + i, block.angle);
+    SDL_Vertex *vp;
+    for (i = 0; i < 12; i++) {
+        vp = vertices + i;
+        rotvert(vp, mirror.angle);
+        shiftvert(vp, x, y);
+    }
 
     SDL_RenderGeometry(ctx->renderer, NULL, vertices, 12, NULL, 0);
+}
+
+void renderbarriers(SDL_Context *ctx, State *state) {
+    Barriers *barriers = state->board->barriers;
+    SDL_Color defaultcolor = {0x00, 0x00, 0x00, 0xFF};
+    SDL_Color selectedcolor = {0x00, 0xFF, 0x00, 0xFF};
+    int i;
+    for (i = 0; i < barriers->n; i++) {
+        if (state->selectedblock == barriers->data + i)
+            renderbarrier(ctx, barriers->data[i], selectedcolor);
+        else
+            renderbarrier(ctx, barriers->data[i], defaultcolor);
+    }
+}
+
+void renderbarrier(SDL_Context *ctx, Block barrier, SDL_Color color) {
+    int x, y, w;
+    x = barrier.x;
+    y = barrier.y;
+    w = barrier.width / 2;
+    SDL_Vertex v1 = {{-w, BLOCKSIZE}, color, {1, 1}};
+    SDL_Vertex v2 = {{w, 0}, color, {1, 1}};
+    SDL_Vertex v3 = {{-w, 0}, color, {1, 1}};
+    SDL_Vertex v4 = v1;
+    SDL_Vertex v5 = {{w, BLOCKSIZE}, color, {1, 1}};
+    SDL_Vertex v6 = v2;
+    SDL_Vertex vertices[] = {v1, v2, v3, v4, v5, v6};
+
+    int i;
+    SDL_Vertex *vp;
+    for (i = 0; i < 6; i++) {
+        vp = vertices + i;
+        rotvert(vp, barrier.angle);
+        shiftvert(vp, x, y);
+    }
+
+    SDL_RenderGeometry(ctx->renderer, NULL, vertices, 6, NULL, 0);
 }
 
 int needsupdate(Uint32 lastupdate) {
@@ -106,3 +156,21 @@ void rotvert(SDL_Vertex *v, double angle) {
     v->position.x = (x * degcos(angle)) - (y * degsin(angle));
     v->position.y = (x * degsin(angle)) + (y * degcos(angle));
 }
+
+void shiftvert(SDL_Vertex *v, int x, int y) {
+    v->position.x += x;
+    v->position.y += y;
+}
+
+int cmtopx(double cm) {
+    return cm * SCALE;
+}
+
+double pxtocm(int px) {
+    return (double) px / SCALE;
+}
+
+int distance(SDL_Point *p1, SDL_Point *p2) {
+    return sqrt(pow(p1->x - p2->x, 2) + pow(p1->y - p2->y, 2));
+}
+
