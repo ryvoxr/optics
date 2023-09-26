@@ -1,5 +1,4 @@
 #include "optics.h"
-#include "lib.h"
 
 void updatemousepos(SDL_Event *event, SDL_Point *mousepos);
 void mirrorclick(State *state);

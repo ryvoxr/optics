@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "optics.h"
-#include "lib.h"
 
 int main() {
     State *state = malloc(sizeof(State));
@@ -21,7 +20,14 @@ int main() {
         }
         handleevents(ctx, state);
         updateselectedblock(state);
+        int laserlen = 0;
+        LineSegment **laserpath = generatelaser(state, &laserlen);
+        int i;
+        for (i = 0; i < laserlen; i++) {
+            printf("laserpath[%d]: (%d, %d) -> (%d, %d)\n", i, laserpath[i]->p1.x, laserpath[i]->p1.y, laserpath[i]->p2.x, laserpath[i]->p2.y);
+        }
         render(ctx, state);
+        SDL_RenderPresent(ctx->renderer);
     }
 }
 

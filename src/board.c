@@ -1,5 +1,4 @@
 #include "optics.h"
-#include "lib.h"
 
 Mirrors *newmirrors();
 Barriers *newbarriers();
@@ -99,15 +98,47 @@ void updateselectedblock(State *state) {
 
     /* update rotation */
     if (state->rightmb) {
-        SDL_Point p1 = {state->selectedblock->x, state->selectedblock->y};
-        SDL_Point p2 = {state->mousepos->x, state->mousepos->y};
-        double angle = degatan(p2.y - p1.y, p2.x - p1.x);
-        if (p2.x < p1.x)
+        int dx, dy;
+        dx = state->mousepos->x - state->selectedblock->x;
+        dy = state->mousepos->y - state->selectedblock->y;
+
+        if (state->selectedside == LEFT) {
+            dx = -dx;
+            dy = -dy;
+        }
+
+        double angle = degatan(dy, dx);
+        if (dx < 0)
             angle += 180;
-        if (state->selectedside == LEFT)
-            angle += 180;
+        else if (dy < 0)
+            angle += 360;
+
         state->selectedblock->angle = angle;
     }
 }
 
+LineSegment mirrorfront(Block *mirror) {
+    double w = mirror->width / 2.0;
+    SDL_Point p1 = {-w, 0};
+    SDL_Point p2 = {w, 0};
+    rotpoint(&p1, mirror->angle);
+    rotpoint(&p2, mirror->angle);
+    shiftpoint(&p1, mirror->x, mirror->y);
+    shiftpoint(&p2, mirror->x, mirror->y);
+    
+    LineSegment front = {p1, p2};
+    return front;
+}
+
+LineSegment mirrorback(Block *mirror) {
+    double w = mirror->width / 2.0;
+    SDL_Point p1 = {-w - BLOCKSIZE, BLOCKSIZE};
+    SDL_Point p2 = {w + BLOCKSIZE, BLOCKSIZE};
+    rotpoint(&p1, mirror->angle);
+    rotpoint(&p2, mirror->angle);
+    shiftpoint(&p1, mirror->x, mirror->y);
+    shiftpoint(&p2, mirror->x, mirror->y);
+    LineSegment back = {p1, p2};
+    return back;
+}
 

@@ -1,5 +1,4 @@
 #include "optics.h"
-#include "lib.h"
 
 #define BOARDWIDTH (WIDTH * SCALE)
 #define BOARDHEIGHT (HEIGHT * SCALE)
@@ -10,9 +9,6 @@ void rendermirrors(SDL_Context *ctx, State *state);
 void rendermirror(SDL_Context *ctx, Block mirro, SDL_Color color);
 void renderbarriers(SDL_Context *ctx, State *state);
 void renderbarrier(SDL_Context *ctx, Block barrier, SDL_Color color);
-void rotvert(SDL_Vertex *v, double angle);
-void shiftvert(SDL_Vertex *v, int x, int y);
-int dist(SDL_Point *p1, SDL_Point *p2);
 
 SDL_Context *SDL_InitContext() {
     SDL_Context *ctx = malloc(sizeof(SDL_Context));
@@ -107,6 +103,14 @@ void rendermirror(SDL_Context *ctx, Block mirror, SDL_Color color) {
     }
 
     SDL_RenderGeometry(ctx->renderer, NULL, vertices, 12, NULL, 0);
+
+    LineSegment front = mirrorfront(&mirror);
+    LineSegment back = mirrorback(&mirror);
+    SDL_SetRenderDrawColor(ctx->renderer, 0x00, 0x00, 0xFF, 0xFF);
+    SDL_RenderDrawLine(ctx->renderer, front.p1.x, front.p1.y, front.p2.x,
+                       front.p2.y);
+    SDL_RenderDrawLine(ctx->renderer, back.p1.x, back.p1.y, back.p2.x,
+                       back.p2.y);
 }
 
 void renderbarriers(SDL_Context *ctx, State *state) {
@@ -148,29 +152,5 @@ void renderbarrier(SDL_Context *ctx, Block barrier, SDL_Color color) {
 
 int needsupdate(Uint32 lastupdate) {
     return (SDL_GetTicks() - lastupdate) > (1000 / FPS);
-}
-
-void rotvert(SDL_Vertex *v, double angle) {
-    float x = v->position.x;
-    float y = v->position.y;
-    v->position.x = (x * degcos(angle)) - (y * degsin(angle));
-    v->position.y = (x * degsin(angle)) + (y * degcos(angle));
-}
-
-void shiftvert(SDL_Vertex *v, int x, int y) {
-    v->position.x += x;
-    v->position.y += y;
-}
-
-int cmtopx(double cm) {
-    return cm * SCALE;
-}
-
-double pxtocm(int px) {
-    return (double) px / SCALE;
-}
-
-int distance(SDL_Point *p1, SDL_Point *p2) {
-    return sqrt(pow(p1->x - p2->x, 2) + pow(p1->y - p2->y, 2));
 }
 
