@@ -144,7 +144,7 @@ void mirrorclick(State *state) {
     mirror.x = state->mousepos->x;
     mirror.y = state->mousepos->y;
     mirror.width = 8 * SCALE;
-    mirror.angle = 0;
+    mirror.angle = 225;
     addmirror(state->board->mirrors, mirror);
 }
 

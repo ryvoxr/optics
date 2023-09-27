@@ -1,51 +1,56 @@
 #include "optics.h"
 
-CollisionType generatelasersegment(State *state, LineSegment *segment, int i, Block **prevblockp);
+CollisionType generatelasersegment(State *state, LineSegment *segment, LineSegment *prevsegment, Block **prevblockp);
 CollisionType intersectwithmirror(LineSegment *l1, Block *mirror, SDL_Point **collision);
 
-LineSegment **generatelaser(State *state, int *laserlen) {
-    LineSegment **laserpath = malloc(sizeof(int) * MAXBOUNCES);
-
-    int i = 0;
+void generatelaser(State *state, LineSegment **laserpath, int *laserlen) {
+    int i;
     Block *prevblock = NULL;
     for (i = 0; i < MAXBOUNCES; i++) {
-        laserpath[i] = malloc(sizeof(LineSegment));
-        CollisionType collisiontype =  generatelasersegment(state, laserpath[i], i, &prevblock);
+        LineSegment *newsegment = malloc(sizeof(LineSegment));
+        LineSegment *prevsegment = i == 0 ? NULL : laserpath[i - 1];
+        CollisionType collisiontype =  generatelasersegment(state, newsegment, prevsegment, &prevblock);
+        printf("collisiontype: %d\n", collisiontype);
+
+        /* maybe leaking hehe */
+        laserpath[i] = newsegment;
         if (collisiontype == NONE || collisiontype == ABSORB) {
             i++;
             break;
         }
     }
-    laserpath = reallocarray(laserpath, i, sizeof(int));
     *laserlen = i;
-    return laserpath;
 }
 
 /* generatelasersegment: generates the next laser segment and places it into
  * *segment. Fills *prevblock with a pointer to the reflecting block. Returns
  * CollisionType */
-CollisionType generatelasersegment(State *state, LineSegment *segment, int n, Block **prevblockp) {
+CollisionType generatelasersegment(State *state, LineSegment *segment, LineSegment *prevsegment, Block **prevblockp) {
     /* find trajectory  */
     LineSegment trajectory;
-    if (n == 0) {
+    if (prevsegment == NULL) {
         trajectory.p1.x = 1;
-        trajectory.p1.y = ((HEIGHT / 2.0) * SCALE);
-        trajectory.p2.x = WIDTH * SCALE + 1;
-        trajectory.p2.y = ((HEIGHT / 2.0) * SCALE);
+        trajectory.p1.y = ((HEIGHT * SCALE) / 2);
+        trajectory.p2.x = WIDTH * SCALE;
+        trajectory.p2.y = ((HEIGHT * SCALE) / 2);
     } else {
-        printf("in else\n");
+        // putchar('\n');
         Block *prevblock = *prevblockp;
-        LineSegment *prevsegment = segment--;
-        double tangent = fmod(prevblock->angle + 90, 360);
+        // printf("prevblock: x: %d, y %d, angle: %f\n", prevblock->x, prevblock->y, prevblock->angle);
+        double tangent = prevblock->angle - 90;
         double incident = degatan(prevsegment->p2.y - prevsegment->p1.y,
-                                  prevsegment->p2.x - prevsegment->p1.x) +
-                          prevblock->angle;
+                                  prevsegment->p2.x - prevsegment->p1.x) + 180;
         double reflection = incident + 2 * (tangent - incident);
+        // printf("tan: %f, inc: %f, ref: %f\n", tangent, incident, reflection);
         trajectory.p1 = prevsegment->p2;
         trajectory.p2.y = reflection > 180 ? 0 : HEIGHT * SCALE;
-        trajectory.p2.x = trajectory.p1.x + trajectory.p1.y * degtan(fmod(reflection, 90));
-        printf("trajectory: (%d, %d) -> (%d, %d)\n", trajectory.p1.x, trajectory.p1.y, trajectory.p2.x, trajectory.p2.y);
+        if (fmod(reflection, 90) == 0)
+            trajectory.p2.x = trajectory.p1.x;
+        else
+            trajectory.p2.x = trajectory.p1.x + trajectory.p2.y * degtan(reflection);
+        // printf("trajectory: (%d, %d) -> (%d, %d)\n", trajectory.p1.x, trajectory.p1.y, trajectory.p2.x, trajectory.p2.y);
     }
+    
 
     /* find closest collision */
     Block *closestblock = NULL;
@@ -84,16 +89,10 @@ CollisionType generatelasersegment(State *state, LineSegment *segment, int n, Bl
         for (i = 0; i < 4; i++) {
             CollisionType collisiontype = ABSORB;
             SDL_Point *collision = intersect(trajectory, walls[i]);
-            if (collision != NULL) {
-                int min = MIN(trajectory.p1.x, trajectory.p2.x);
-                int max = MAX(trajectory.p1.x, trajectory.p2.x);
-                if (collision->x < min || collision->x > max) {
-                    collision = NULL;
-                }
-            }
             if (collision == NULL)
                 continue;
 
+            printf("wall collision: (%d, %d)\n", collision->x, collision->y);
             int dist = distance(&trajectory.p1, collision);
             if (dist < mindist) {
                 mindist = dist;
@@ -172,7 +171,7 @@ double slope(LineSegment line) {
 /* intersect: returns a pointer to the intersection point of two lines, or NULL
  * if they don't intersect */
 SDL_Point *intersect(LineSegment l1, LineSegment l2) {
-    int x1, x2, x3, x4, y1, y2, y3, y4;
+    long x1, x2, x3, x4, y1, y2, y3, y4;
     x1 = l1.p1.x;
     x2 = l1.p2.x;
     x3 = l2.p1.x;
@@ -182,12 +181,25 @@ SDL_Point *intersect(LineSegment l1, LineSegment l2) {
     y3 = l2.p1.y;
     y4 = l2.p2.y;
 
-    int d = (x1 - x2)*(y3 - y4) - (y1 - y2)*(x3 - x4);
+    long d = (x1 - x2)*(y3 - y4) - (y1 - y2)*(x3 - x4);
     if (d == 0)
         return NULL;
     SDL_Point *p = malloc(sizeof(SDL_Point));
     p->x = ((x1*y2 - y1*x2)*(x3 - x4) - (x1 - x2)*(x3*y4 - y3*x4))/d;
     p->y = ((x1*y2 - y1*x2)*(y3 - y4) - (y1 - y2)*(x3*y4 - y3*x4))/d;
+
+    if (p->x <= MIN(x1, x2) || p->x >= MAX(x1, x2)) {
+        if ((p->x == x1) && (p->x == x2))
+            return p;
+        free(p);
+        return NULL;
+    }
+    if (p->x <= MIN(x3, x4) || p->x >= MAX(x3, x4)) {
+        if ((p->x == x3) && (p->x == x4))
+            return p;
+        free(p);
+        return NULL;
+    }
 
     return p;
 }

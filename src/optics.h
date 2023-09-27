@@ -94,7 +94,7 @@ int needsupdate(Uint32 lastupdate);
 void handleevents(SDL_Context *ctx, State *state);
 
 /* geometry */
-LineSegment **generatelaser(State *state, int *laserlen);
+void generatelaser(State *state, LineSegment **laserpath, int *laserlen);
 double slope(LineSegment line);
 SDL_Point *intersect(LineSegment l1, LineSegment l2);
 double degtorad(double deg);

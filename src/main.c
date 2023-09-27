@@ -11,6 +11,8 @@ int main() {
     state->rightmb = 0;
 
     SDL_Context *ctx = SDL_InitContext();
+    LineSegment **laserpath = malloc(sizeof(int) * MAXBOUNCES);
+    int i;
 
     SDL_Event event;
     while (1) {
@@ -21,13 +23,14 @@ int main() {
         handleevents(ctx, state);
         updateselectedblock(state);
         int laserlen = 0;
-        LineSegment **laserpath = generatelaser(state, &laserlen);
+        generatelaser(state, laserpath, &laserlen);
         int i;
         for (i = 0; i < laserlen; i++) {
             printf("laserpath[%d]: (%d, %d) -> (%d, %d)\n", i, laserpath[i]->p1.x, laserpath[i]->p1.y, laserpath[i]->p2.x, laserpath[i]->p2.y);
         }
         render(ctx, state);
         SDL_RenderPresent(ctx->renderer);
+        putchar('\n');
     }
 }
 
